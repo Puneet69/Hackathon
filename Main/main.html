@@ -1,0 +1,117 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Object Detection Web App</title>
+    <script src="https://cdn.jsdelivr.net/npm/tesseract.js@2.3.0/dist/tesseract.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/darknet@2.3.0/dist/darknet.js"></script>
+</head>
+<body>
+    <h1>Object Detection Web App</h1>
+    
+    <button id="startButton" onclick="startCamera()">Start Camera</button>
+    <button id="stopButton" disabled onclick="stopCamera()">Stop Camera</button>
+    <button id="detectButton" disabled onclick="detectObjects()">Detect Objects</button>
+    <button id="speakButton" disabled onclick="speakDetectedText()">Speak Text</button>
+    
+    <video id="videoElement" width="640" height="480" autoplay></video>
+    
+    <canvas id="canvasElement" width="640" height="480"></canvas>
+    
+    <div id="detectedObjects"></div> <!-- Element for displaying recognized objects -->
+    
+    <script>
+        let videoStream = null;
+        let net = null;
+
+        const startButton = document.getElementById("startButton");
+        const stopButton = document.getElementById("stopButton");
+        const detectButton = document.getElementById("detectButton");
+        const speakButton = document.getElementById("speakButton");
+        const videoElement = document.getElementById("videoElement");
+        const canvasElement = document.getElementById("canvasElement");
+        const detectedObjects = document.getElementById("detectedObjects");
+
+        async function startCamera() {
+            startButton.disabled = true;
+            stopButton.disabled = false;
+            detectButton.disabled = false;
+            speakButton.disabled = true; // Disable speaking initially
+
+            // Access the user's camera
+            navigator.mediaDevices
+                .getUserMedia({ video: true })
+                .then((stream) => {
+                    videoStream = stream;
+                    videoElement.srcObject = stream;
+                })
+                .catch((error) => {
+                    console.error("Error accessing the camera: " + error);
+                    startButton.disabled = false;
+                    stopButton.disabled = true;
+                    detectButton.disabled = true;
+                });
+
+            // Load the YOLO model
+            net = new darknet.Module({
+                onRuntimeInitialized: function () {
+                    // Load YOLO model from specific file paths
+                    const weightFilePath = "yolov3.weights";
+                    const cfgFilePath = "yolov3.cfg";
+                    net._loadNet(weightFilePath, cfgFilePath);
+                    console.log("YOLO model loaded.");
+                }
+            });
+        }
+
+        function stopCamera() {
+            startButton.disabled = false;
+            stopButton.disabled = true;
+            detectButton.disabled = true;
+            speakButton.disabled = true;
+
+            // Stop the camera stream
+            if (videoStream) {
+                videoStream.getTracks().forEach((track) => {
+                    track.stop();
+                });
+                videoStream = null;
+                videoElement.srcObject = null;
+            }
+        }
+
+        async function detectObjects() {
+            // Capture a frame from the video
+            const context = canvasElement.getContext("2d");
+            context.drawImage(videoElement, 0, 0, canvasElement.width, canvasElement.height);
+
+            // Perform object detection using Darknet.js
+            const imageData = context.getImageData(0, 0, canvasElement.width, canvasElement.height);
+            const detections = net.detect(imageData);
+
+            // Display detected objects with labels
+            detectedObjects.innerHTML = "";
+            detections.forEach((detection) => {
+                const label = detection.label;
+                const confidence = (detection.confidence * 100).toFixed(2);
+                detectedObjects.innerHTML += `Object: ${label}, Confidence: ${confidence}%<br>`;
+            });
+
+            // Enable the "Speak Text" button
+            speakButton.disabled = false;
+        }
+
+        function speakDetectedText() {
+            // Get the detected text and use the Web Speech API to speak it
+            const text = detectedObjects.textContent;
+            const utterance = new SpeechSynthesisUtterance(text);
+            window.speechSynthesis.speak(utterance);
+        }
+    </script>
+</body>
+</html>
+
+
+
+
+
+

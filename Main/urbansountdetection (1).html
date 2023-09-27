@@ -1,0 +1,74 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Urban Sound Detection</title>
+</head>
+<body>
+    <h1>Urban Sound Detection</h1>
+    <p id="status">Click "Start" to begin sound detection.</p>
+    <button id="startButton" onclick="startSoundDetection()">Start</button>
+    <button id="stopButton" disabled onclick="stopSoundDetection()">Stop</button>
+    
+    <script src="https://cdn.jsdelivr.net/npm/@tensorflow/tfjs"></script>
+    <script src="https://cdn.jsdelivr.net/npm/@tensorflow-models/speech-commands"></script>
+    <script>
+        let recognizer;
+        let detectionInterval;
+        
+        const statusElement = document.getElementById("status");
+        const startButton = document.getElementById("startButton");
+        const stopButton = document.getElementById("stopButton");
+        
+        async function startSoundDetection() {
+            startButton.disabled = true;
+            stopButton.disabled = false;
+            
+            statusElement.textContent = "Listening for urban sounds...";
+            
+            // Load the speech-commands recognizer
+            try {
+                recognizer = speechCommands.create('BROWSER_FFT');
+                await recognizer.ensureModelLoaded();
+                
+                // Start continuous detection
+                detectionInterval = setInterval(detectSound, 3000); // Check every 3 seconds
+            } catch (error) {
+                console.error("Error loading the model:", error);
+                statusElement.textContent = "Error loading the model.";
+            }
+        }
+        
+        function stopSoundDetection() {
+            startButton.disabled = false;
+            stopButton.disabled = true;
+            
+            statusElement.textContent = "Sound detection stopped.";
+            
+            // Stop the detection interval
+            clearInterval(detectionInterval);
+        }
+        
+        async function detectSound() {
+            try {
+                const result = await recognizer.listen(
+                    result => {
+                        // Sound classification result
+                        if (result.scores) {
+                            const classLabel = result.scores[0].className; // Get the detected class label
+                            notifySoundDetection(classLabel);
+                        }
+                    },
+                    { probabilityThreshold: 0.7 } // Adjust this threshold as needed
+                );
+            } catch (error) {
+                console.error("Error during sound detection:", error);
+            }
+        }
+        
+        function notifySoundDetection(classLabel) {
+            // Send a notification or display a message based on the detected sound
+            statusElement.textContent = `Detected sound: ${classLabel}`;
+        }
+    </script>
+</body>
+</html>
